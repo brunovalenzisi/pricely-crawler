@@ -7,12 +7,12 @@ const crawler = new CheerioCrawler({
     maxConcurrency: 50,
     maxRequestRetries: 1,
     requestHandlerTimeoutSecs: 30,
-    maxRequestsPerCrawl: 1000,
+   
 
     async requestHandler({ pushData, request, $ }) {
         const producto = obtenerProducto($, request);
         await guardarProducto(producto);
-        await pushData(producto);
+        await productDataset.pushData(producto);
     },
 
     failedRequestHandler({ request }) {
