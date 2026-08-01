@@ -3,9 +3,9 @@ import {obtenerProducto,guardarProducto} from "./scraper.js";
 import  connectDB  from "./database/mongoConection.js";
 
 const crawler = new CheerioCrawler({
-    minConcurrency: 10,
-    maxConcurrency: 50,
-    maxRequestRetries: 5,
+    minConcurrency: 1,
+    maxConcurrency: 10,
+    maxRequestRetries: 10,
     requestHandlerTimeoutSecs: 30,
    
 
