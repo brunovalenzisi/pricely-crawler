@@ -222,39 +222,47 @@ export function obtenerProducto($, request) {
 
 // Busca la tienda por nombre; si no existe la crea con su logo y baseURL.
 // Si ya existe pero descubrimos un logo/baseURL nuevo (o distinto), lo actualiza.
+// Normaliza el nombre de una tienda para evitar duplicados
+function normalizarNombreTienda(nombre = "") {
+    return nombre
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // elimina acentos
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+}
+
+
+// Busca la tienda por nombre normalizado; si no existe la crea.
+// Si existe, actualiza logo/baseURL si cambiaron.
 async function obtenerOCrearTienda({ tienda, logoURL, baseURL }) {
 
-    let tiendaDoc = await TiendaModel.findOne({ nombre: tienda });
+    const nombre = (tienda || "")
+        .trim()
+        .replace(/\s+/g, " ");
 
-    if (!tiendaDoc) {
+    const nombreNormalizado = normalizarNombreTienda(nombre);
 
-        tiendaDoc = await TiendaModel.create({
-            nombre: tienda,
-            LogoURL: logoURL || "",
-            baseURL: baseURL || "",
-        });
-
-    } else {
-
-        let cambio = false;
-
-        if (logoURL && tiendaDoc.LogoURL !== logoURL) {
-            tiendaDoc.LogoURL = logoURL;
-            cambio = true;
+    return await TiendaModel.findOneAndUpdate(
+        {
+            nombreNormalizado,
+        },
+        {
+            $setOnInsert: {
+                nombre,
+                nombreNormalizado,
+            },
+            $set: {
+                LogoURL: logoURL || "",
+                baseURL: baseURL || "",
+            },
+        },
+        {
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
         }
-
-        if (baseURL && tiendaDoc.baseURL !== baseURL) {
-            tiendaDoc.baseURL = baseURL;
-            cambio = true;
-        }
-
-        if (cambio) {
-            await tiendaDoc.save();
-        }
-
-    }
-
-    return tiendaDoc;
+    );
 }
 
 
