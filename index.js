@@ -5,7 +5,7 @@ import  connectDB  from "./database/mongoConection.js";
 const crawler = new CheerioCrawler({
     minConcurrency: 10,
     maxConcurrency: 50,
-    maxRequestRetries: 1,
+    maxRequestRetries: 5,
     requestHandlerTimeoutSecs: 30,
    
 
