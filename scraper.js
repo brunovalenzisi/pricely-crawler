@@ -258,7 +258,7 @@ async function obtenerOCrearTienda({ tienda, logoURL, baseURL }) {
             },
         },
         {
-            new: true,
+            returnDocument: "after",
             upsert: true,
             setDefaultsOnInsert: true,
         }
