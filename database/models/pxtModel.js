@@ -1,45 +1,45 @@
 import mongoose from "mongoose";
-
+ 
 const { Schema } = mongoose;
-
+ 
 const productoXTiendaSchema = new Schema({
   producto: {
     type: Schema.Types.ObjectId,
     ref: "Producto",
     required: true,
   },
-
+ 
   tienda: {
     type: Schema.Types.ObjectId,
     ref: "Tienda",
     required: true,
   },
-
+ 
   url: {
     type: String,
     default: "",
   },
-
+ 
   precio: {
     type: Number,
     required: true,
   },
-
+ 
   precioSinDescuento: {
     type: Number,
     default: null,
   },
-
+ 
   descuentoPorcentaje: {
     type: Number,
     default: null,
   },
-
+ 
   ultimaActualizacion: {
     type: Date,
     default: Date.now,
   },
-
+ 
   historicos: [
     {
       fecha: {
@@ -53,9 +53,10 @@ const productoXTiendaSchema = new Schema({
     }
   ],
 });
-
+ 
 export default mongoose.model(
   "ProductoXTienda",
   productoXTiendaSchema,
   "productosXTienda"
 );
+ 

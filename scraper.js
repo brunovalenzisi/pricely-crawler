@@ -1,5 +1,6 @@
 import ProductoModel from "./database/models/productModel.js"
 import ProductoXTiendaModel from "./database/models/pxtModel.js";
+import TiendaModel from "./database/models/tiendaModel.js";
 
 
 // Convierte "3.640,00" -> 3640.00
@@ -10,6 +11,16 @@ function parsePrecioAr(str) {
     const num = parseFloat(limpio);
 
     return Number.isNaN(num) ? null : num;
+}
+
+
+// Extrae el origin (https://host) de una URL, o "" si no es válida
+function obtenerBaseURL(url) {
+    try {
+        return new URL(url).origin;
+    } catch (_) {
+        return "";
+    }
 }
 
 
@@ -90,6 +101,10 @@ export function obtenerProducto($, request) {
         "";
 
 
+    // Origen del sitio de Pricely (para resolver logos relativos, ej. "/images/markets/x.webp")
+    const pricelyBaseURL = obtenerBaseURL(request.url);
+
+
     const Tiendas = [];
 
 
@@ -98,12 +113,26 @@ export function obtenerProducto($, request) {
         const $el = $(el);
 
 
+        const $img = $el.find("img").first();
+
+
         const tienda =
-            $el.find("img").attr("alt")?.trim() || "";
+            $img.attr("alt")?.trim() || "";
 
 
         const url =
             $el.attr("href") || "";
+
+
+        let logoURL = $img.attr("src") || "";
+
+        // Si el logo viene con ruta relativa, la resolvemos contra el
+        // dominio de Pricely (de donde vino el HTML scrapeado).
+        if (logoURL && !/^https?:\/\//i.test(logoURL) && pricelyBaseURL) {
+            logoURL = new URL(logoURL, pricelyBaseURL).href;
+        }
+
+        const baseURL = obtenerBaseURL(url);
 
 
         const precio =
@@ -166,6 +195,8 @@ export function obtenerProducto($, request) {
 
         Tiendas.push({
             tienda,
+            logoURL,
+            baseURL,
             url,
             precio,
             precioSinDescuento,
@@ -186,6 +217,44 @@ export function obtenerProducto($, request) {
         URL: request.url,
         Tiendas,
     };
+}
+
+
+// Busca la tienda por nombre; si no existe la crea con su logo y baseURL.
+// Si ya existe pero descubrimos un logo/baseURL nuevo (o distinto), lo actualiza.
+async function obtenerOCrearTienda({ tienda, logoURL, baseURL }) {
+
+    let tiendaDoc = await TiendaModel.findOne({ nombre: tienda });
+
+    if (!tiendaDoc) {
+
+        tiendaDoc = await TiendaModel.create({
+            nombre: tienda,
+            LogoURL: logoURL || "",
+            baseURL: baseURL || "",
+        });
+
+    } else {
+
+        let cambio = false;
+
+        if (logoURL && tiendaDoc.LogoURL !== logoURL) {
+            tiendaDoc.LogoURL = logoURL;
+            cambio = true;
+        }
+
+        if (baseURL && tiendaDoc.baseURL !== baseURL) {
+            tiendaDoc.baseURL = baseURL;
+            cambio = true;
+        }
+
+        if (cambio) {
+            await tiendaDoc.save();
+        }
+
+    }
+
+    return tiendaDoc;
 }
 
 
@@ -260,11 +329,21 @@ export async function guardarProducto(productoScrapeado) {
 
         const {
             tienda,
+            logoURL,
+            baseURL,
             url,
             precio,
             precioSinDescuento,
             descuentoPorcentaje
         } = tiendaData;
+
+
+        // Resuelve (o crea) el documento Tienda y nos quedamos con su _id
+        const tiendaDoc = await obtenerOCrearTienda({
+            tienda,
+            logoURL,
+            baseURL,
+        });
 
 
 
@@ -283,7 +362,7 @@ export async function guardarProducto(productoScrapeado) {
 
                 producto: producto._id,
 
-                tienda
+                tienda: tiendaDoc._id
 
             });
 
@@ -326,7 +405,7 @@ export async function guardarProducto(productoScrapeado) {
 
                     producto: producto._id,
 
-                    tienda,
+                    tienda: tiendaDoc._id,
 
                     url,
 
