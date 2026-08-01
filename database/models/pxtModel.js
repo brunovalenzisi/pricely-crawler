@@ -10,7 +10,8 @@ const productoXTiendaSchema = new Schema({
   },
 
   tienda: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: "Tienda",
     required: true,
   },
 

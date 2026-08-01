@@ -28,15 +28,8 @@ const productSchema = new Schema({
     default: "",
   },
 
-  Tipo: {
-    type: String,
-    default: "",
-  },
+tags:{ type: [String], default: [] },
 
-  Subtipo: {
-    type: String,
-    default: "",
-  },
 
   Marca: {
     type: String,

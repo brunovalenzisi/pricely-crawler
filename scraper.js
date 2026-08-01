@@ -17,8 +17,30 @@ export function obtenerProducto($, request) {
 
     const nombreProducto = $("h1").first().text().trim();
 
-    const Descripcion =
-        $('meta[name="description"]').attr("content")?.trim() || "";
+
+    // --- Descripción real del producto (no la meta genérica) ---
+    // La meta "description" trae "Compará precios de X en supermercados..."
+    // La descripción real está en el JSON-LD (schema.org Product) y también
+    // se replica en el <p> justo debajo del <h1>. Priorizamos el JSON-LD
+    // porque es más estable ante cambios de clases CSS.
+    let Descripcion = "";
+
+    try {
+        const rawSchema = $("script#schema").first().html();
+        if (rawSchema) {
+            const schemaJson = JSON.parse(rawSchema);
+            if (schemaJson?.description) {
+                Descripcion = schemaJson.description.trim();
+            }
+        }
+    } catch (_) {
+        // si falla el parseo, seguimos con el fallback de abajo
+    }
+
+    if (!Descripcion) {
+        // Fallback: el <p> inmediatamente después del <h1>
+        Descripcion = $("h1").first().next("p").text().trim();
+    }
 
 
     const CodigoEan =
@@ -29,13 +51,14 @@ export function obtenerProducto($, request) {
             .trim();
 
 
-    const Categoria = $("p")
+    let Categoria = $("p")
         .filter((_, el) => $(el).text().includes("Rubro"))
         .text()
         .replace(/^Rubro\s*·\s*/i, "")
         .trim();
 
 
+    // Lista completa de tags/categorías secundarias (sección "También en")
     const categorias = $("section")
         .has('p:contains("También en")')
         .find("a")
@@ -43,10 +66,22 @@ export function obtenerProducto($, request) {
         .get();
 
 
-    const SubCategoria =
+    let SubCategoria =
         categorias.length > 1
             ? categorias[1]
             : Categoria;
+
+
+    // Si Categoria viene vacía pero SubCategoria tiene valor,
+    // Categoria toma ese valor y SubCategoria queda vacía.
+    if (!Categoria && SubCategoria) {
+        Categoria = SubCategoria;
+        SubCategoria = "";
+    }
+
+
+    // Tags: todas las etiquetas de la sección "También en"
+    const tags = categorias;
 
 
     const imagenURL =
@@ -146,6 +181,7 @@ export function obtenerProducto($, request) {
         CodigoEan,
         Categoria,
         SubCategoria,
+        tags,
         imagenURL,
         URL: request.url,
         Tiendas,
@@ -162,6 +198,7 @@ export async function guardarProducto(productoScrapeado) {
         CodigoEan,
         Categoria,
         SubCategoria,
+        tags,
         imagenURL,
         URL,
         Tiendas
@@ -191,6 +228,8 @@ export async function guardarProducto(productoScrapeado) {
 
             SubCategoria,
 
+            tags,
+
             imagenURL,
 
             URL,
@@ -198,6 +237,14 @@ export async function guardarProducto(productoScrapeado) {
             ProductosXTienda: []
 
         });
+
+    } else {
+
+        // Actualizamos campos que pueden cambiar entre scrapeos
+        producto.Descripcion = Descripcion;
+        producto.Categoria = Categoria;
+        producto.SubCategoria = SubCategoria;
+        producto.tags = tags;
 
     }
 
