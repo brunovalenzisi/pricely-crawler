@@ -327,7 +327,7 @@ export async function guardarProducto(productoScrapeado) {
 
 
 
-    const productosXTiendaIds = [];
+    const productosXTiendaIds = new Set();
 
 
 
@@ -450,7 +450,7 @@ export async function guardarProducto(productoScrapeado) {
 
 
 
-        productosXTiendaIds.push(
+        productosXTiendaIds.add(
             productoXTienda._id
         );
 
@@ -459,18 +459,10 @@ export async function guardarProducto(productoScrapeado) {
 
 
 
-    // Actualizar referencias
-    producto.ProductosXTienda = [
-
-        ...new Set([
-
-            ...producto.ProductosXTienda,
-
-            ...productosXTiendaIds
-
-        ])
-
-    ];
+    // Actualizar referencias con el conjunto actual del scrape
+    producto.ProductosXTienda = Array.from(
+        productosXTiendaIds
+    );
 
 
 
