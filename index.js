@@ -4,15 +4,30 @@ import  connectDB  from "./database/mongoConection.js";
 
 const crawler = new CheerioCrawler({
     minConcurrency: 1,
-    maxConcurrency: 10,
-    maxRequestRetries: 10,
+    maxConcurrency: 4,          // bajalo, probá con 2-4 primero
+    maxRequestsPerMinute: 120,  // limita el ritmo real de requests
     requestHandlerTimeoutSecs: 30,
-   
+    maxRequestRetries: 10,
 
-    async requestHandler({ pushData, request, $ }) {
-        const producto = obtenerProducto($, request);
-        await guardarProducto(producto);
-        await productDataset.pushData(producto);
+    autoscaledPoolOptions: {
+        systemStatusOptions: {
+            maxUsedCpuRatio: 0.75,   // más conservador que el default (0.95)
+        },
+        snapshotterOptions: {
+            eventLoopSnapshotIntervalSecs: 0.5,
+            osSnapshotIntervalSecs: 0.5,
+        },
+    },
+
+    async requestHandler({ request, $ }) {
+        try {
+            const producto = obtenerProducto($, request);
+            await guardarProducto(producto);
+            await productDataset.pushData(producto);
+        } catch (err) {
+            log.error(`Error procesando ${request.url}: ${err.message}`);
+            throw err; // dejá que Crawlee maneje el retry, pero logueado
+        }
     },
 
     failedRequestHandler({ request }) {
