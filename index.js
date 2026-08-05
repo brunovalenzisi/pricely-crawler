@@ -1,55 +1,66 @@
-import { CheerioCrawler, Sitemap, log ,Dataset} from "crawlee";
-import {obtenerProducto,guardarProducto} from "./scraper.js";
-import  connectDB  from "./database/mongoConection.js";
+import { CheerioCrawler, Sitemap, log, Dataset, RequestQueue } from "crawlee";
+import { obtenerProducto, guardarProducto } from "./scraper.js";
+import connectDB from "./database/mongoConection.js";
+
+log.setLevel(log.LEVELS.DEBUG);
+
+// node index.js --full
+// node index.js -f
+const args = process.argv.slice(2);
+const FULL_SCRAPE = args.includes("--full") || args.includes("-f");
+
+try {
+    await connectDB();
+} catch (error) {
+    console.error(error);
+    process.exit(1);
+}
+
+const requestQueue = await RequestQueue.open("pricely-queue");
+
+if (FULL_SCRAPE) {
+    log.info("Flag --full recibido -> vaciando la cola y arrancando de cero");
+    await requestQueue.drop();
+}
+
+const finalQueue = await RequestQueue.open("pricely-queue");
+const productDataset = await Dataset.open("products");
 
 const crawler = new CheerioCrawler({
+    requestQueue: finalQueue,
     minConcurrency: 1,
-    maxConcurrency: 4,          // bajalo, probá con 2-4 primero
-    maxRequestsPerMinute: 120,  // limita el ritmo real de requests
+    maxConcurrency: 4,
+    maxRequestsPerMinute: 120,
     requestHandlerTimeoutSecs: 30,
     maxRequestRetries: 10,
 
     autoscaledPoolOptions: {
         systemStatusOptions: {
-            maxUsedCpuRatio: 0.75,   // más conservador que el default (0.95)
-        },
-        snapshotterOptions: {
-            eventLoopSnapshotIntervalSecs: 0.5,
-            osSnapshotIntervalSecs: 0.5,
+            maxUsedCpuRatio: 0.75,
         },
     },
 
     async requestHandler({ request, $ }) {
-        try {
-            const producto = obtenerProducto($, request);
-            await guardarProducto(producto);
-            await productDataset.pushData(producto);
-        } catch (err) {
-            log.error(`Error procesando ${request.url}: ${err.message}`);
-            throw err; // dejá que Crawlee maneje el retry, pero logueado
-        }
+        const producto = obtenerProducto($, request);
+        await guardarProducto(producto);
+        await productDataset.pushData(producto);
     },
 
     failedRequestHandler({ request }) {
-        log.debug(`Request ${request.url} failed twice.`);
+        log.debug(`Request ${request.url} falló definitivamente.`);
     },
 });
 
-log.setLevel(log.LEVELS.DEBUG);
-
-const { urls } = await Sitemap.load([
-    "https://pricely.ar/sitemap-products/0",
-    "https://pricely.ar/sitemap-products/1",
-]);
-
-log.info(`Productos a scrapear: ${urls.length}`);
-
-await crawler.addRequests(urls);
-try {
-  await connectDB();
-  
-} catch (error) {
-  console.log(error)
+const info = await finalQueue.getInfo();
+if (!info || info.totalRequestCount === 0) {
+    const { urls } = await Sitemap.load([
+        "https://pricely.ar/sitemap-products/0",
+        "https://pricely.ar/sitemap-products/1",
+    ]);
+    log.info(`Encolando ${urls.length} productos`);
+    await finalQueue.addRequests(urls.map((url) => ({ url })));
+} else {
+    log.info(`Retomando cola existente: ${info.pendingRequestCount} pendientes de ${info.totalRequestCount}`);
 }
-const productDataset = await Dataset.open("products");
+
 await crawler.run();
