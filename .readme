@@ -1,0 +1,97 @@
+# Pricely Crawler
+
+Crawler que scrapea productos y precios desde el sitemap de [pricely.ar](https://pricely.ar) y guarda los resultados en MongoDB (histórico de precios por tienda incluido).
+
+## Requisitos
+
+- Node.js 18 o superior
+- MongoDB accesible (producción y/o dev)
+- npm
+
+## Instalación
+
+```bash
+git clone <repo>
+cd pricely-crawler
+npm install
+```
+
+## Configuración
+
+Creá un archivo `.env` en la raíz del proyecto con las URIs de conexión:
+
+```env
+# Base de datos de producción
+MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/pricely
+
+# Base de datos de desarrollo
+MONGODB_URI_DEV=mongodb://192.168.0.142:27017/GDHTEST
+```
+
+## Uso
+
+### Correr el crawler (producción, desde cero)
+
+```bash
+node index.js
+```
+
+Por default, Crawlee **purga la cola de requests al iniciar**, así que esta forma de correrlo siempre hace un scrap completo, cargando todas las urls del sitemap.
+
+### Correr contra la base de datos de desarrollo
+
+Agregá el flag `-dev`:
+
+```bash
+node index.js -dev
+```
+
+### Retomar una corrida interrumpida
+
+Si el proceso se cortó (crash, `Ctrl+C`, apagón, etc.), podés retomarlo desde donde quedó sin volver a cargar el sitemap ni reprocesar lo ya scrapeado:
+
+```bash
+CRAWLEE_PURGE_ON_START=0 node index.js
+```
+
+Combinable con `-dev`:
+
+```bash
+CRAWLEE_PURGE_ON_START=0 node index.js -dev
+```
+
+### Forzar un scrap completo
+
+Correr sin `CRAWLEE_PURGE_ON_START=0` (o explícitamente en `1`, que es el default) siempre vuelve a cargar el sitemap completo:
+
+```bash
+node index.js
+```
+
+## Resumen de flags y variables de entorno
+
+| Parámetro                       | Efecto                                                              |
+|----------------------------------|----------------------------------------------------------------------|
+| (sin flags)                      | Corre contra producción, scrap completo                             |
+| `-dev`                           | Corre contra la base de datos de desarrollo                         |
+| `CRAWLEE_PURGE_ON_START=0`       | Retoma la cola de requests existente en vez de purgarla              |
+
+## Detener el crawler
+
+`Ctrl+C` hace un shutdown ordenado: Crawlee guarda el estado de la cola antes de cortar, así que después podés retomar con `CRAWLEE_PURGE_ON_START=0`. Presionar `Ctrl+C` una segunda vez fuerza el cierre inmediato.
+
+## Estructura de datos
+
+- **Producto**: datos generales del producto (nombre, descripción, categoría, EAN, tags, imagen).
+- **Tienda**: comercios donde se encontró el producto (nombre, logo, URL base).
+- **ProductoXTienda**: precio actual, precio de lista, descuento y **histórico de precios** por producto y tienda.
+
+## Notas de rendimiento
+
+El crawler está configurado con límites conservadores para evitar sobrecargar el CPU:
+
+- `maxConcurrency: 4`
+- `maxRequestsPerMinute: 120`
+- `maxUsedCpuRatio: 0.75`
+
+Si necesitás ajustar esto (por ejemplo, correr en un servidor más potente), modificá estos valores directamente en `index.js`.
