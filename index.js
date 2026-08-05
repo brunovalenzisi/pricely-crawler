@@ -1,8 +1,9 @@
-import { CheerioCrawler, Sitemap, log, Dataset, RequestQueue } from "crawlee";
+import { CheerioCrawler, Sitemap, log, Dataset, RequestQueue, Configuration } from "crawlee";
 import { obtenerProducto, guardarProducto } from "./scraper.js";
 import { connectDB } from "./database/mongoConection.js";
 
 log.setLevel(log.LEVELS.DEBUG);
+Configuration.getGlobalConfig().set("maxUsedCpuRatio", 0.75);
 
 // --- Parseo de argumentos ---
 const args = process.argv.slice(2);
@@ -64,19 +65,12 @@ const crawler = new CheerioCrawler({
     maxRequestsPerMinute: 120,
     requestHandlerTimeoutSecs: 30,
     maxRequestRetries: 10,
-
-    autoscaledPoolOptions: {
-        systemStatusOptions: {
-            maxUsedCpuRatio: 0.75,
-        },
-    },
-
+    // ya no va autoscaledPoolOptions.systemStatusOptions.maxUsedCpuRatio
     async requestHandler({ request, $ }) {
         const producto = obtenerProducto($, request);
         await guardarProducto(producto);
         await productDataset.pushData(producto);
     },
-
     failedRequestHandler({ request }) {
         log.debug(`Request ${request.url} falló definitivamente.`);
     },
