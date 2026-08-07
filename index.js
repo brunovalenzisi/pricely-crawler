@@ -61,10 +61,10 @@ const productDataset = await Dataset.open(`products-${entorno}`);
 const crawler = new CheerioCrawler({
     requestQueue,
     minConcurrency: 1,
-    maxConcurrency: 4,
+    maxConcurrency: 6,
     maxRequestsPerMinute: 120,
     requestHandlerTimeoutSecs: 30,
-    maxRequestRetries: 10,
+    maxRequestRetries: 5,
     // ya no va autoscaledPoolOptions.systemStatusOptions.maxUsedCpuRatio
     async requestHandler({ request, $ }) {
         const producto = obtenerProducto($, request);
