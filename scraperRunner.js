@@ -83,6 +83,8 @@ export async function ejecutarScraper({
         const { urls } = await Sitemap.load([
             "https://pricely.ar/sitemap-products/0",
             "https://pricely.ar/sitemap-products/1",
+            "https://pricely.ar/sitemap-products/2",
+            "https://pricely.ar/sitemap-products/3",
         ]);
 
         log.info(`Encolando ${urls.length} productos`);
